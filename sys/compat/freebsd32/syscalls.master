@@ -1119,3 +1119,5 @@
 				    struct kevent32 *eventlist, \
 				    int nevents, \
 				    const struct timespec32 *timeout); }
+561 AUE_NULL    NOPROTO { int mwritewatch(void *addr0, size_t len, int flags, \
+                    void *buf, size_t *naddr, size_t *granularity); }

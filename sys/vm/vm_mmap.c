@@ -1584,3 +1584,17 @@ vm_mmap_to_errno(int rv)
 		return (EINVAL);
 	}
 }
+
+int
+sys_mwritewatch(struct thread *td, struct mwritewatch_args *uap)
+{
+	return kern_mwritewatch(td, uap->addr0, uap->len, uap->flags, uap->buf,
+	    uap->naddr, uap->granularity);
+}
+
+int
+kern_mwritewatch(struct thread *td, void *addr0, size_t len, int flags,
+    void *buf, size_t *naddr, size_t *granularity)
+{
+	return (0);
+}

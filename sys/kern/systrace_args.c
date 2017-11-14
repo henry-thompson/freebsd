@@ -3276,6 +3276,18 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		*n_args = 6;
 		break;
 	}
+	/* mwritewatch */
+	case 561: {
+		struct mwritewatch_args *p = params;
+		uarg[0] = (intptr_t) p->addr0; /* void * */
+		uarg[1] = p->len; /* size_t */
+		iarg[2] = p->flags; /* int */
+		uarg[3] = (intptr_t) p->buf; /* void * */
+		uarg[4] = (intptr_t) p->naddr; /* size_t * */
+		uarg[5] = (intptr_t) p->granularity; /* size_t * */
+		*n_args = 6;
+		break;
+	}
 	default:
 		*n_args = 0;
 		break;
@@ -8728,6 +8740,31 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		};
 		break;
+	/* mwritewatch */
+	case 561:
+		switch(ndx) {
+		case 0:
+			p = "userland void *";
+			break;
+		case 1:
+			p = "size_t";
+			break;
+		case 2:
+			p = "int";
+			break;
+		case 3:
+			p = "userland void *";
+			break;
+		case 4:
+			p = "userland size_t *";
+			break;
+		case 5:
+			p = "userland size_t *";
+			break;
+		default:
+			break;
+		};
+		break;
 	default:
 		break;
 	};
@@ -10611,6 +10648,11 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		break;
 	/* kevent */
 	case 560:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* mwritewatch */
+	case 561:
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;

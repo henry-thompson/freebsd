@@ -593,4 +593,5 @@ const char *freebsd32_syscallnames[] = {
 	"fhstatfs",			/* 558 = fhstatfs */
 	"mknodat",			/* 559 = mknodat */
 	"freebsd32_kevent",			/* 560 = freebsd32_kevent */
+	"mwritewatch",			/* 561 = mwritewatch */
 };

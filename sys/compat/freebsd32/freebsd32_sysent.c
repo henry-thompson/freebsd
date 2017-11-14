@@ -642,4 +642,5 @@ struct sysent freebsd32_sysent[] = {
 	{ AS(fhstatfs_args), (sy_call_t *)sys_fhstatfs, AUE_FHSTATFS, NULL, 0, 0, 0, SY_THR_STATIC },	/* 558 = fhstatfs */
 	{ AS(mknodat_args), (sy_call_t *)sys_mknodat, AUE_MKNODAT, NULL, 0, 0, SYF_CAPENABLED, SY_THR_STATIC },	/* 559 = mknodat */
 	{ AS(freebsd32_kevent_args), (sy_call_t *)freebsd32_kevent, AUE_KEVENT, NULL, 0, 0, SYF_CAPENABLED, SY_THR_STATIC },	/* 560 = freebsd32_kevent */
+	{ AS(mwritewatch_args), (sy_call_t *)sys_mwritewatch, AUE_NULL, NULL, 0, 0, 0, SY_THR_STATIC },	/* 561 = mwritewatch */
 };

@@ -264,6 +264,7 @@ int	mprotect(void *, size_t, int);
 int	msync(void *, size_t, int);
 int	munlock(const void *, size_t);
 int	munmap(void *, size_t);
+int	mwritewatch(void *, size_t, int, void *, size_t *, size_t *);
 #if __POSIX_VISIBLE >= 200112
 int	posix_madvise(void *, size_t, int);
 #endif

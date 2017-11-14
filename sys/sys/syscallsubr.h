@@ -172,6 +172,8 @@ int	kern_munlock(struct thread *td, uintptr_t addr, size_t size);
 int	kern_munmap(struct thread *td, uintptr_t addr, size_t size);
 int     kern_nanosleep(struct thread *td, struct timespec *rqt,
 	    struct timespec *rmt);
+int	kern_mwritewatch(struct thread *td, void *addr0, size_t len, int flags,
+    void *buf, size_t *naddr, size_t *granularity);
 int	kern_ogetdirentries(struct thread *td, struct ogetdirentries_args *uap,
 	    long *ploff);
 int	kern_openat(struct thread *td, int fd, char *path,

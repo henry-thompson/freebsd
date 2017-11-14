@@ -1707,6 +1707,13 @@ int	linux_pkey_free(struct thread *, struct linux_pkey_free_args *);
 
 #endif /* COMPAT_FREEBSD10 */
 
+
+#ifdef COMPAT_FREEBSD11
+
+#define	nosys	linux_nosys
+
+#endif /* COMPAT_FREEBSD11 */
+
 #define	LINUX32_SYS_AUE_linux_exit	AUE_EXIT
 #define	LINUX32_SYS_AUE_linux_fork	AUE_FORK
 #define	LINUX32_SYS_AUE_linux_open	AUE_OPEN_RWTC
