@@ -1588,13 +1588,95 @@ vm_mmap_to_errno(int rv)
 int
 sys_mwritewatch(struct thread *td, struct mwritewatch_args *uap)
 {
-	return kern_mwritewatch(td, uap->addr0, uap->len, uap->flags, uap->buf,
-	    uap->naddr, uap->granularity);
+	return kern_mwritewatch(td, (uintptr_t)uap->addr0, uap->len, uap->flags,
+	    (uintptr_t)uap->buf, uap->naddr, uap->granularity);
 }
 
 int
-kern_mwritewatch(struct thread *td, void *addr0, size_t len, int flags,
-    void *buf, size_t *naddr, size_t *granularity)
+kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
+    uintptr_t buf, size_t *naddr, size_t *granularity)
 {
+	vm_map_t map = &td->td_proc->p_vmspace->vm_map;
+	vm_offset_t end = addr0 + len;
+
+	if (end < addr0 || addr0 < vm_map_min(map) || end > vm_map_max(map))
+		return (ENOMEM);
+
+	vm_map_lock(map);
+	vm_map_entry_t firstEntry;
+
+	if (!vm_map_lookup_entry(map, addr0, &firstEntry)) {
+		vm_map_unlock(map);
+		return (ENOMEM);
+	}
+
+	vm_map_entry_t current;
+	size_t written_pages = 0;
+	size_t max_written_pages = *naddr;
+	/* todo can't have buffer on stack? */
+	vm_offset_t kern_buf[max_written_pages];
+
+	for (current = firstEntry;
+	    (current != &map->header) && (current->start < end);
+	    current = current->next) {
+
+		/* check for contiguity */
+		if (current->end < end &&
+		    (current->next == &map->header ||
+		     current->next->start > current->end)) {
+			vm_map_unlock(map);
+			return (ENOMEM);
+		}
+
+		/*
+		 * Submaps are kernel-only so we shouldn't need to worry
+		 * about them. Ignore null objects.
+		 */
+		if ((current->eflags & MAP_ENTRY_IS_SUB_MAP) ||
+			current->object.vm_object == NULL)
+			continue;
+
+		/* scan page by page */
+		vm_offset_t addr = current->start < addr0 ? addr0 : current->start;
+		vm_offset_t max_addr = current->end > end ? end : current->end;
+		vm_object_t object = current->object.vm_object;
+		VM_OBJECT_WLOCK(object);
+
+		while (addr < max_addr) {
+			vm_pindex_t pindex = OFF_TO_IDX(current->offset +
+			    (addr - current->start));
+			vm_page_t page = vm_page_lookup(object, pindex);
+
+			if (page != NULL) {
+				if (page->written == 0 && pmap_is_modified(page)) {
+					if (page->dirty != VM_PAGE_BITS_ALL)
+						vm_page_dirty(page);
+
+					pmap_clear_modify(page);
+					page->written = 1;
+				}
+
+				if (page->written) {
+					if (written_pages == max_written_pages) {
+						vm_map_unlock(map);
+						return (ENOMEM);
+					}
+
+					kern_buf[written_pages] = addr;
+					written_pages++;
+				}
+			}
+
+			addr += PAGE_SIZE;
+		}
+
+		VM_OBJECT_WUNLOCK(object);
+	}
+
+	vm_map_unlock(map);
+	*naddr = written_pages;
+	*granularity = PAGE_SIZE;
+	copyout(&kern_buf, (void *) buf, written_pages * sizeof(vm_offset_t));
+
 	return (0);
 }
