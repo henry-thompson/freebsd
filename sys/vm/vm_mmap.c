@@ -1665,6 +1665,11 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 
 					kern_buf[written_pages] = addr;
 					written_pages++;
+
+					/* Reset writewatch flags as we go along if requested. */
+					if (flags & MWRITEWATCH_RESET) {
+						page->written = 0;
+					}
 				}
 			}
 

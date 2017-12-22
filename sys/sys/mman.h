@@ -195,6 +195,11 @@ typedef	__size_t	size_t;
 #define	_SIZE_T_DECLARED
 #endif
 
+/*
+ * Flags for mwritewatch
+ */
+#define MWRITEWATCH_RESET	0x001 /* Reset writewatch bits */
+
 #if defined(_KERNEL) || defined(_WANT_FILE)
 #include <sys/lock.h>
 #include <sys/mutex.h>
