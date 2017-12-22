@@ -1658,6 +1658,7 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 
 				if (page->written) {
 					if (written_pages == max_written_pages) {
+						VM_OBJECT_WUNLOCK(object);
 						vm_map_unlock(map);
 						return (ENOMEM);
 					}
