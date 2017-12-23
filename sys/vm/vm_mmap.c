@@ -1624,13 +1624,13 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 		if (current->end < end &&
 		    (current->next == &map->header ||
 		     current->next->start > current->end)) {
-			vm_map_unlock(map);
+			vm_map_unlock_read(map);
 			return (ENOMEM);
 		}
 
 		/*
-		 * Submaps are kernel-only so we shouldn't need to worry
-		 * about them. Ignore null objects.
+		 * Submaps are kernel-only so we shouldn't need to worry about them.
+		 * Ignore null objects.
 		 */
 		if ((current->eflags & MAP_ENTRY_IS_SUB_MAP) ||
 			current->object.vm_object == NULL)
@@ -1679,7 +1679,7 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 		VM_OBJECT_WUNLOCK(object);
 	}
 
-	vm_map_unlock(map);
+	vm_map_unlock_read(map);
 	*naddr = written_pages;
 	*granularity = PAGE_SIZE;
 	copyout(&kern_buf, (void *) buf, written_pages * sizeof(vm_offset_t));
