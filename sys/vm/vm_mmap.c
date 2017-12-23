@@ -1602,19 +1602,24 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	if (end < addr0 || addr0 < vm_map_min(map) || end > vm_map_max(map))
 		return (ENOMEM);
 
-	vm_map_lock(map);
+	vm_map_lock_read(map);
 	vm_map_entry_t firstEntry;
 
 	if (!vm_map_lookup_entry(map, addr0, &firstEntry)) {
-		vm_map_unlock(map);
+		vm_map_unlock_read(map);
 		return (ENOMEM);
 	}
 
 	vm_map_entry_t current;
 	size_t written_pages = 0;
 	size_t max_written_pages = *naddr;
+
 	/* todo can't have buffer on stack? */
 	vm_offset_t kern_buf[max_written_pages];
+
+	if (max_written_pages == 0) {
+		goto done;
+	}
 
 	for (current = firstEntry;
 	    (current != &map->header) && (current->start < end);
@@ -1657,18 +1662,18 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 				}
 
 				if (page->written) {
-					if (written_pages == max_written_pages) {
-						VM_OBJECT_WUNLOCK(object);
-						vm_map_unlock(map);
-						return (ENOMEM);
-					}
-
 					kern_buf[written_pages] = addr;
 					written_pages++;
 
 					/* Reset writewatch flags as we go along if requested. */
 					if (flags & MWRITEWATCH_RESET) {
 						page->written = 0;
+					}
+
+					/* If we have filled the buffer of addresses, stop. */
+					if (written_pages == max_written_pages) {
+						VM_OBJECT_WUNLOCK(object);
+						goto done;
 					}
 				}
 			}
@@ -1679,6 +1684,7 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 		VM_OBJECT_WUNLOCK(object);
 	}
 
+done:
 	vm_map_unlock_read(map);
 	*naddr = written_pages;
 	*granularity = PAGE_SIZE;
