@@ -73,6 +73,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/syscallsubr.h>
 #include <sys/sysent.h>
 #include <sys/vmmeter.h>
+#include <sys/malloc.h>
 
 #include <security/audit/audit.h>
 #include <security/mac/mac_framework.h>
@@ -92,6 +93,9 @@ __FBSDID("$FreeBSD$");
 #ifdef HWPMC_HOOKS
 #include <sys/pmckern.h>
 #endif
+
+MALLOC_DECLARE(M_WRITEWATCH);
+MALLOC_DEFINE(M_WRITEWATCH, "Writewatch Buffer", "Buffers to hold addresses of written pages");
 
 int old_mlock = 0;
 SYSCTL_INT(_vm, OID_AUTO, old_mlock, CTLFLAG_RWTUN, &old_mlock, 0,
@@ -1614,8 +1618,8 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	size_t written_pages = 0;
 	size_t max_written_pages = *naddr;
 
-	/* todo can't have buffer on stack? */
-	vm_offset_t kern_buf[max_written_pages];
+	vm_offset_t *addr_buf = (vm_offset_t *)malloc(
+	    sizeof(vm_offset_t) * max_written_pages, M_WRITEWATCH, M_WAITOK);
 
 	if (max_written_pages == 0) {
 		goto done;
@@ -1630,15 +1634,11 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 		    (current->next == &map->header ||
 		     current->next->start > current->end)) {
 			vm_map_unlock_read(map);
+			free(addr_buf, M_WRITEWATCH);
 			return (ENOMEM);
 		}
 
-		/*
-		 * Submaps are kernel-only so we shouldn't need to worry about them.
-		 * Ignore null objects.
-		 */
-		if ((current->eflags & MAP_ENTRY_IS_SUB_MAP) ||
-			current->object.vm_object == NULL)
+		if (current->object.vm_object == NULL)
 			continue;
 
 		/* scan page by page */
@@ -1662,7 +1662,7 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 				}
 
 				if (page->written) {
-					kern_buf[written_pages] = addr;
+					addr_buf[written_pages] = addr;
 					written_pages++;
 
 					/* Reset writewatch flags as we go along if requested. */
@@ -1686,9 +1686,10 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 
 done:
 	vm_map_unlock_read(map);
+	copyout(addr_buf, (void *) buf, written_pages * sizeof(vm_offset_t));
+	free(addr_buf, M_WRITEWATCH);
 	*naddr = written_pages;
 	*granularity = PAGE_SIZE;
-	copyout(&kern_buf, (void *) buf, written_pages * sizeof(vm_offset_t));
 
 	return (0);
 }
