@@ -1686,8 +1686,11 @@ done:
 	vm_map_unlock_read(map);
 	copyout(addr_buf, (void *) buf, written_pages * sizeof(vm_offset_t));
 	free(addr_buf, M_WRITEWATCH);
-	*naddr = written_pages;
-	*granularity = PAGE_SIZE;
+
+	size_t page_size = PAGE_SIZE;
+
+	copyout(&written_pages, naddr, sizeof(size_t));
+	copyout(&page_size, granularity, sizeof(size_t));
 
 	return (0);
 }
