@@ -1604,14 +1604,14 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	vm_offset_t end = addr0 + len;
 
 	if (end < addr0 || addr0 < vm_map_min(map) || end > vm_map_max(map))
-		return (ENOMEM);
+		return (EINVAL);
 
 	vm_map_lock_read(map);
 	vm_map_entry_t firstEntry;
 
 	if (!vm_map_lookup_entry(map, addr0, &firstEntry)) {
 		vm_map_unlock_read(map);
-		return (ENOMEM);
+		return (EINVAL);
 	}
 
 	vm_map_entry_t current;
@@ -1634,7 +1634,7 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 		     current->next->start > current->end)) {
 			vm_map_unlock_read(map);
 			free(addr_buf, M_WRITEWATCH);
-			return (ENOMEM);
+			return (EINVAL);
 		}
 
 		if (current->object.vm_object == NULL)
