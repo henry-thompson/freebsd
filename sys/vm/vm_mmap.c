@@ -1621,9 +1621,8 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	vm_offset_t *addr_buf = (vm_offset_t *)malloc(
 	    sizeof(vm_offset_t) * max_written_pages, M_WRITEWATCH, M_WAITOK);
 
-	if (max_written_pages == 0) {
+	if (max_written_pages == 0)
 		goto done;
-	}
 
 	for (current = firstEntry;
 	    (current != &map->header) && (current->start < end);
@@ -1666,9 +1665,8 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 					written_pages++;
 
 					/* Reset writewatch flags as we go along if requested. */
-					if (flags & MWRITEWATCH_RESET) {
+					if (flags & MWRITEWATCH_RESET)
 						page->written = 0;
-					}
 
 					/* If we have filled the buffer of addresses, stop. */
 					if (written_pages == max_written_pages) {
