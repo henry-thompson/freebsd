@@ -1653,11 +1653,9 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 
 			if (page != NULL) {
 				if (page->written == 0 && pmap_is_modified(page)) {
-					if (page->dirty != VM_PAGE_BITS_ALL)
-						vm_page_dirty(page);
-
+					/* Calling vm_page_dirty also sets the writewatch flag. */
+					vm_page_dirty(page);
 					pmap_clear_modify(page);
-					page->written = 1;
 				}
 
 				if (page->written) {

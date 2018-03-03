@@ -3528,7 +3528,15 @@ vm_page_set_validclean(vm_page_t m, int base, int size)
 		 * mapped, and it can only be mapped if it was previously
 		 * fully valid.
 		 */
-		if (oldvalid == VM_PAGE_BITS_ALL)
+		if (oldvalid == VM_PAGE_BITS_ALL) {
+			/*
+			 * Ensure the writewatch remains aware that this page
+			 * was written to.
+			 */
+			if (m->written == 0 && pmap_is_modified(m)) {
+				m->written = 1;
+			}
+
 			/*
 			 * Perform the pmap_clear_modify() first.  Otherwise,
 			 * a concurrent pmap operation, such as
@@ -3538,6 +3546,7 @@ vm_page_set_validclean(vm_page_t m, int base, int size)
 			 * field was cleared here.
 			 */
 			pmap_clear_modify(m);
+		}
 		m->dirty = 0;
 		m->oflags &= ~VPO_NOSYNC;
 	} else if (oldvalid != VM_PAGE_BITS_ALL)
