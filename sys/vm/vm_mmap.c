@@ -1618,8 +1618,9 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	size_t written_pages = 0;
 	size_t max_written_pages = *naddr;
 
-	vm_offset_t *addr_buf = (vm_offset_t *)malloc(
-	    sizeof(vm_offset_t) * max_written_pages, M_WRITEWATCH, M_WAITOK);
+	const int addr_buf_size = 16;
+	int addr_buf_position = 0;
+	vm_offset_t addr_buf[addr_buf_size];
 
 	if (max_written_pages == 0)
 		goto done;
@@ -1633,7 +1634,6 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 		    (current->next == &map->header ||
 		     current->next->start > current->end)) {
 			vm_map_unlock_read(map);
-			free(addr_buf, M_WRITEWATCH);
 			return (EINVAL);
 		}
 
@@ -1661,14 +1661,31 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 				}
 
 				if (page->written) {
-					addr_buf[written_pages] = addr;
+					addr_buf[addr_buf_position] = addr;
+					addr_buf_position++;
 					written_pages++;
+
+					/*
+					 * If we have filled the temporary buffer, copy the
+					 * addresses out.
+					 */
+					if (addr_buf_position == addr_buf_size) {
+						copyout(addr_buf, (void *) buf, addr_buf_size * sizeof(vm_offset_t));
+
+						/*
+						 * Move the pointer to the userspace address buffer to
+						 * after the final piece of data we just inserted
+						 * so next time we copyout the address buffer, we append
+						 * to what we have already buffered.
+						 */
+						buf += addr_buf_size * sizeof(vm_offset_t);
+						addr_buf_position = 0;
+					}
 
 					/* Reset writewatch flags as we go along if requested. */
 					if (flags & MWRITEWATCH_RESET)
 						page->written = 0;
 
-					/* If we have filled the buffer of addresses, stop. */
 					if (written_pages == max_written_pages) {
 						VM_OBJECT_WUNLOCK(object);
 						goto done;
@@ -1684,8 +1701,9 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 
 done:
 	vm_map_unlock_read(map);
-	copyout(addr_buf, (void *) buf, written_pages * sizeof(vm_offset_t));
-	free(addr_buf, M_WRITEWATCH);
+
+	if (addr_buf_position > 0)
+		copyout(addr_buf, (void *) buf, addr_buf_position * sizeof(vm_offset_t));
 
 	size_t page_size = PAGE_SIZE;
 
