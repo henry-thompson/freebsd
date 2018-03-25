@@ -1601,20 +1601,22 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
     uintptr_t buf, size_t *naddr, size_t *granularity)
 {
 	vm_map_t map = &td->td_proc->p_vmspace->vm_map;
-	vm_offset_t end = addr0 + len;
 
-	if (end < addr0 || addr0 < vm_map_min(map) || end > vm_map_max(map))
+	if ((addr0 + len) < addr0 || addr0 < vm_map_min(map) || addr0 + len > vm_map_max(map))
 		return (EINVAL);
+
+	vm_offset_t start = trunc_page(addr0);
+	vm_offset_t end = round_page(addr0 + len);
 
 	vm_map_lock_read(map);
 	vm_map_entry_t firstEntry;
 
-	if (!vm_map_lookup_entry(map, addr0, &firstEntry)) {
+	if (!vm_map_lookup_entry(map, start, &firstEntry)) {
 		vm_map_unlock_read(map);
 		return (EINVAL);
 	}
 
-	vm_map_entry_t current;
+	vm_map_entry_t entry;
 	size_t written_pages = 0;
 	size_t max_written_pages = *naddr;
 
@@ -1625,76 +1627,141 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	if (max_written_pages == 0)
 		goto done;
 
-	for (current = firstEntry;
-	    (current != &map->header) && (current->start < end);
-	    current = current->next) {
-
-		/* check for contiguity */
-		if (current->end < end &&
-		    (current->next == &map->header ||
-		     current->next->start > current->end)) {
+	/* Scan every vm_map_entry in the region's pages. */
+	for (entry = firstEntry;
+	     (entry != &map->header) && (entry->start < end);
+	     entry = entry->next
+	) {
+		/* Check for contiguity */
+		if (entry->end < end &&
+		    (entry->next == &map->header ||
+		     entry->next->start > entry->end)) {
 			vm_map_unlock_read(map);
 			return (EINVAL);
 		}
 
-		if (current->object.vm_object == NULL)
+		if (entry->eflags & MAP_ENTRY_IS_SUB_MAP)
 			continue;
 
-		/* scan page by page */
-		vm_offset_t addr = current->start < addr0 ? addr0 : current->start;
-		vm_offset_t max_addr = current->end > end ? end : current->end;
-		vm_object_t object = current->object.vm_object;
+		/* Page offsets to start and end scanning between. */
+		vm_pindex_t pindex = OFF_TO_IDX(entry->offset);
+		vm_pindex_t pend = pindex + atop(entry->end - entry->start);
+
+		if (entry->start < start)
+			pindex += atop(start - entry->start);
+		if (entry->end > end)
+			pend -= atop(entry->end - end);
+
+		if (pindex >= pend)
+			continue;
+
+		/* Scan object page by page. */
+		vm_object_t object = entry->object.vm_object;
+
+		if (object == NULL)
+			continue;
+
 		VM_OBJECT_WLOCK(object);
+		uint16_t locked_depth = 1;
 
-		while (addr < max_addr) {
-			vm_pindex_t pindex = OFF_TO_IDX(current->offset +
-			    (addr - current->start));
-			vm_page_t page = vm_page_lookup(object, pindex);
+		for (vm_page_t p = vm_page_find_least(object, pindex); pindex < pend; pindex++) {
+			/*
+			* If there is no backing object we can skip over nonresident pages.
+			*/
+			if (object->backing_object == NULL &&
+			    (p == NULL || (pindex = p->pindex) >= end))
+				break;
 
-			if (page != NULL) {
-				if (page->written == 0 && pmap_is_modified(page)) {
-					/* Calling vm_page_dirty also sets the writewatch flag. */
-					vm_page_dirty(page);
-					pmap_clear_modify(page);
-				}
+			/* 
+			 * We may have to search the shadow chain to find the actual
+			 * object containing the page. These temp variables will be
+			 * set to the actual values we work from having searched the
+			 * shadow chain if necessary.
+			 */
+			vm_object_t tobject = object;
+			vm_offset_t tpindex = pindex;
+			vm_page_t tp = p;
+			uint16_t depth = 0;
 
-				if (page->written) {
-					addr_buf[addr_buf_position] = addr;
-					addr_buf_position++;
-					written_pages++;
+			/*
+			 * If the page is non-resident in the top-level object
+			 * search the shadow chain for it.
+			 */
+			if (p == NULL || pindex < p->pindex) {
+				do {
+					tpindex += OFF_TO_IDX(tobject->backing_object_offset);
 
-					/*
-					 * If we have filled the temporary buffer, copy the
-					 * addresses out.
-					 */
-					if (addr_buf_position == addr_buf_size) {
-						copyout(addr_buf, (void *) buf, addr_buf_size * sizeof(vm_offset_t));
+					if ((tobject = tobject->backing_object) == NULL)
+						goto next_pindex;
 
-						/*
-						 * Move the pointer to the userspace address buffer to
-						 * after the final piece of data we just inserted
-						 * so next time we copyout the address buffer, we append
-						 * to what we have already buffered.
-						 */
-						buf += addr_buf_size * sizeof(vm_offset_t);
-						addr_buf_position = 0;
+					depth++;
+					if (depth == locked_depth) {
+						locked_depth++;
+						VM_OBJECT_WLOCK(tobject);
 					}
-
-					/* Reset writewatch flags as we go along if requested. */
-					if (flags & MWRITEWATCH_RESET)
-						page->written = 0;
-
-					if (written_pages == max_written_pages) {
-						VM_OBJECT_WUNLOCK(object);
-						goto done;
-					}
-				}
+				} while ((tp = vm_page_lookup(tobject, tpindex)) == NULL);
+			} else {
+				tp = p;
+				p = TAILQ_NEXT(p, listq);
 			}
 
-			addr += PAGE_SIZE;
+			if (tp->written == 0 && pmap_is_modified(tp))
+				/* This also sets the writewatch flag. */
+				vm_page_dirty(tp);
+
+			if (!tp->written) 
+				continue;
+
+			/* Compute address of page. */
+			vm_offset_t addr = entry->start + IDX_TO_OFF(tpindex) - entry->offset;
+
+			addr_buf[addr_buf_position] = addr;
+			addr_buf_position++;
+			written_pages++;
+
+			/*
+			 * If we have filled the temporary buffer, copy the
+			 * addresses out.
+			 */
+			if (addr_buf_position == addr_buf_size) {
+				copyout(addr_buf, (void *) buf,
+					addr_buf_size * sizeof(vm_offset_t));
+
+				/*
+				 * Move the pointer to the userspace address buffer to
+				 * after the final piece of data we just inserted
+				 * so next time we copyout the address buffer, we append
+				 * to what we have already buffered.
+				 */
+				buf += addr_buf_size * sizeof(vm_offset_t);
+				addr_buf_position = 0;
+			}
+
+			/* Reset writewatch flags as we go along if requested. */
+			if (flags & MWRITEWATCH_RESET) {
+				pmap_clear_modify(tp);
+				tp->written = 0;
+			}
+
+			if (written_pages == max_written_pages) {
+				tobject = object;
+
+				while (locked_depth > 0) {
+					VM_OBJECT_WUNLOCK(tobject);
+					tobject = tobject->backing_object;
+					locked_depth--;
+				}
+
+				goto done;
+			}
+next_pindex: ;
 		}
 
-		VM_OBJECT_WUNLOCK(object);
+		while (locked_depth > 0) {
+			VM_OBJECT_WUNLOCK(object);
+			object = object->backing_object;
+			locked_depth--;
+		}
 	}
 
 done:
