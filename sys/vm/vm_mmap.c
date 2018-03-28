@@ -1703,9 +1703,9 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 				p = TAILQ_NEXT(p, listq);
 			}
 
-			if (tp->written == 0 && pmap_is_modified(m))
+			if (tp->written == 0 && pmap_is_modified(tp))
 				/* This sets the written flag if needed. */
-				m->written = 1;
+				tp->written = 1;
 
 			if (!tp->written) 
 				continue;
@@ -1748,8 +1748,9 @@ next_pindex: ;
 		}
 
 		while (locked_depth > 0) {
+			backing = object->backing_object;
 			VM_OBJECT_WUNLOCK(object);
-			object = object->backing_object;
+			object = backing;
 			locked_depth--;
 		}
 		
