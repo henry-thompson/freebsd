@@ -1627,7 +1627,7 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	if (max_written_pages == 0)
 		goto done;
 
-	/* Scan every vm_map_entry in the region's pages. */
+	/* Scan every vm_map_entry's pages. */
 	for (entry = firstEntry;
 	     (entry != &map->header) && (entry->start < end);
 	     entry = entry->next
@@ -1665,9 +1665,7 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 		uint16_t locked_depth = 1;
 
 		for (vm_page_t p = vm_page_find_least(object, pindex); pindex < pend; pindex++) {
-			/*
-			* If there is no backing object we can skip over nonresident pages.
-			*/
+			/* If there is no backing object, skip nonresident pages. */
 			if (object->backing_object == NULL &&
 			    (p == NULL || (pindex = p->pindex) >= end))
 				break;
@@ -1705,9 +1703,9 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 				p = TAILQ_NEXT(p, listq);
 			}
 
-			if (tp->written == 0 && pmap_is_modified(tp))
-				/* This also sets the writewatch flag. */
-				vm_page_dirty(tp);
+			if (tp->written == 0)
+				/* This sets the written flag if needed. */
+				vm_page_test_dirty(p);
 
 			if (!tp->written) 
 				continue;
@@ -1743,17 +1741,9 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 				tp->written = 0;
 			}
 
-			if (written_pages == max_written_pages) {
-				tobject = object;
+			if (written_pages == max_written_pages)
+				break;
 
-				while (locked_depth > 0) {
-					VM_OBJECT_WUNLOCK(tobject);
-					tobject = tobject->backing_object;
-					locked_depth--;
-				}
-
-				goto done;
-			}
 next_pindex: ;
 		}
 
@@ -1762,6 +1752,9 @@ next_pindex: ;
 			object = object->backing_object;
 			locked_depth--;
 		}
+		
+		if (written_pages == max_written_pages)
+			break;
 	}
 
 done:

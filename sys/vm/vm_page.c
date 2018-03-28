@@ -3533,7 +3533,7 @@ vm_page_set_validclean(vm_page_t m, int base, int size)
 			 * Ensure the writewatch remains aware that this page
 			 * was written to.
 			 */
-			if m->written == 0 && pmap_is_modified(m)
+			if (m->written == 0 && pmap_is_modified(m))
 				m->written = 1;
 
 			/*
