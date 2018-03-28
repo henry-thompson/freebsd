@@ -3530,13 +3530,6 @@ vm_page_set_validclean(vm_page_t m, int base, int size)
 		 */
 		if (oldvalid == VM_PAGE_BITS_ALL) {
 			/*
-			 * Ensure the writewatch remains aware that this page
-			 * was written to.
-			 */
-			if (m->written == 0 && pmap_is_modified(m))
-				m->written = 1;
-
-			/*
 			 * Perform the pmap_clear_modify() first.  Otherwise,
 			 * a concurrent pmap operation, such as
 			 * pmap_protect(), could clear a modification in the
