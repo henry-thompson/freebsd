@@ -677,8 +677,6 @@ vm_page_dirty(vm_page_t m)
 #else
 	m->dirty = VM_PAGE_BITS_ALL;
 #endif
-	/* If the page is dirty we consider it to have been modified. */
-	m->written = 1;
 }
 
 /*
