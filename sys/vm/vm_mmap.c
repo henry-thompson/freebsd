@@ -1703,9 +1703,9 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 				p = TAILQ_NEXT(p, listq);
 			}
 
-			if (tp->written == 0 && pmap_is_modified(m))
+			if (tp->written == 0)
 				/* This sets the written flag if needed. */
-				m->written = 1;
+				vm_page_test_dirty(p);
 
 			if (!tp->written) 
 				continue;

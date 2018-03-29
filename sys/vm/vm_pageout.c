@@ -1517,8 +1517,7 @@ unlock_page:
 
 		/*
 		 * Clean pages can be freed, but dirty pages must be sent back
-		 * to the laundry, unless they belong to a dead object, and
-		 * their writewatch must be updated.
+		 * to the laundry, unless they belong to a dead object.
 		 * Requeueing dirty pages from dead objects is pointless, as
 		 * they are being paged out and freed by the thread that
 		 * destroyed the object.
@@ -1528,11 +1527,8 @@ free_page:
 			vm_page_free(m);
 			VM_CNT_INC(v_dfree);
 			--page_shortage;
-		} else {
-			m->written = 1;
-			if ((object->flags & OBJ_DEAD) == 0)
-				vm_page_launder(m);
-		}
+		} else if ((object->flags & OBJ_DEAD) == 0)
+			vm_page_launder(m);
 drop_page:
 		vm_page_unlock(m);
 		VM_OBJECT_WUNLOCK(object);
