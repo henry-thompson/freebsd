@@ -527,7 +527,6 @@ void vm_page_clear_dirty (vm_page_t, int, int);
 void vm_page_set_invalid (vm_page_t, int, int);
 int vm_page_is_valid (vm_page_t, int, int);
 void vm_page_test_dirty (vm_page_t);
-void vm_page_test_dirty_if_clean(vm_page_t);
 vm_page_bits_t vm_page_bits(int base, int size);
 void vm_page_zero_invalid(vm_page_t m, boolean_t setvalid);
 void vm_page_free_toq(vm_page_t m);
