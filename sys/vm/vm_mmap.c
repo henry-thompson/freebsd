@@ -868,7 +868,7 @@ RestartScan:
 			}
 			if (m != NULL) {
 				/* Examine other mappings to the page. */
-				vm_page_test_unclean(m);
+				vm_page_test_dirty_if_clean(m);
 
 				if (m->dirty != 0)
 					mincoreinfo |= MINCORE_MODIFIED_OTHER;
@@ -1746,9 +1746,6 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 
 next_pindex: ;
 		}
-
-		/* Release all the locks. */
-		vm_object_t backing;
 
 		while (locked_depth > 0) {
 			backing = object->backing_object;
