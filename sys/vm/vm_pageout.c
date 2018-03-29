@@ -1507,18 +1507,18 @@ unlock_page:
 		 * layer, then remove all of its mappings from the pmap in
 		 * anticipation of freeing it.  If, however, any of the page's
 		 * mappings allow write access, then the page may still be
-		 * modified until the last of those mappings are removed.
+		 * modified until the last of those mappings are removed. We
+		 * must also ensure that the write-tracking is properly set.
 		 */
 		if (object->ref_count != 0) {
-			vm_page_test_dirty(m);
+			vm_page_test_dirtywritten(m);
 			if (m->dirty == 0)
 				pmap_remove_all(m);
 		}
 
 		/*
 		 * Clean pages can be freed, but dirty pages must be sent back
-		 * to the laundry, unless they belong to a dead object. Their
-		 * writewatch must be updated before any laundering occurs.
+		 * to the laundry, unless they belong to a dead object.
 		 * Requeueing dirty pages from dead objects is pointless, as
 		 * they are being paged out and freed by the thread that
 		 * destroyed the object.
@@ -1528,10 +1528,8 @@ free_page:
 			vm_page_free(m);
 			VM_CNT_INC(v_dfree);
 			--page_shortage;
-		} else {
-			m->written = 1;
-			if ((object->flags & OBJ_DEAD) == 0)
-				vm_page_launder(m);
+		} else if ((object->flags & OBJ_DEAD) == 0) {
+			vm_page_launder(m);
 		}
 drop_page:
 		vm_page_unlock(m);
