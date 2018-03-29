@@ -3136,8 +3136,8 @@ vm_page_advise(vm_page_t m, int advice)
 	 */
 	vm_page_aflag_clear(m, PGA_REFERENCED);
 
-	if (advice != MADV_FREE)
-		vm_page_test_dirty_if_clean(m);
+	if (advice != MADV_FREE && m->dirty == 0 && pmap_is_modified(m))
+		vm_page_dirty(m);
 
 	/*
 	 * Place clean pages near the head of the inactive queue rather than
@@ -3533,8 +3533,9 @@ vm_page_set_validclean(vm_page_t m, int base, int size)
 			 * Ensure the writewatch remains aware that this page
 			 * was written to.
 			 */
-			if m->written == 0 && pmap_is_modified(m)
+			if (m->written == 0 && pmap_is_modified(m)) {
 				m->written = 1;
+			}
 
 			/*
 			 * Perform the pmap_clear_modify() first.  Otherwise,
@@ -3703,27 +3704,8 @@ vm_page_test_dirty(vm_page_t m)
 {
 
 	VM_OBJECT_ASSERT_WLOCKED(m->object);
-	if (m->dirty != VM_PAGE_BITS_ALL && pmap_is_modified(m)) {
+	if (m->dirty != VM_PAGE_BITS_ALL && pmap_is_modified(m))
 		vm_page_dirty(m);
-		/* Save a pagetable walk later: set written here. */
-		m->written = 1;
-	}
-}
-
-/*
- * Set the page's dirty bits if the page has no dirty bits
- * and is modified.
- */
-void
-vm_page_test_dirty_if_clean(vm_page_t m)
-{
-
-	VM_OBJECT_ASSERT_WLOCKED(m->object);
-	if (m->dirty == 0 && pmap_is_modified(m)) {
-		vm_page_dirty(m);
-		/* Save a pagetable walk later: set written here. */
-		m->written = 1;
-	}
 }
 
 void
