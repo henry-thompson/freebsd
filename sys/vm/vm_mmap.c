@@ -1665,10 +1665,8 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 		uint16_t locked_depth = 1;
 
 		for (vm_page_t p = vm_page_find_least(object, pindex); pindex < pend; pindex++) {
-			/*
-			* If there is no backing object we can skip over nonresident pages.
-			*/
-			if (object->backing_object == NULL &&
+			/* If there is no backing object or no-share flag is set, skip nonresident pages. */
+			if ((object->backing_object == NULL || flags & MWRITEWATCH_NOT_SHARED) &&
 			    (p == NULL || (pindex = p->pindex) >= end))
 				break;
 

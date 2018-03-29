@@ -199,6 +199,7 @@ typedef	__size_t	size_t;
  * Flags for mwritewatch
  */
 #define MWRITEWATCH_RESET	0x001 /* Reset writewatch bits */
+#define MWRITEWATCH_NOT_SHARED	0x002 /* Don't scan shadow chains */
 
 #if defined(_KERNEL) || defined(_WANT_FILE)
 #include <sys/lock.h>
