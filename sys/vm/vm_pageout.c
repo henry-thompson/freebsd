@@ -1517,8 +1517,8 @@ unlock_page:
 
 		/*
 		 * Clean pages can be freed, but dirty pages must be sent back
-		 * to the laundry, unless they belong to a dead object. Their
-		 * writewatch must be updated before any laundering occurs.
+		 * to the laundry, unless they belong to a dead object, and
+		 * their writewatch must be updated.
 		 * Requeueing dirty pages from dead objects is pointless, as
 		 * they are being paged out and freed by the thread that
 		 * destroyed the object.
