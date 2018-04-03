@@ -406,4 +406,5 @@ MIASM =  \
 	fhstatfs.o \
 	mknodat.o \
 	kevent.o \
-	mwritewatch.o
+	mwritewatch.o \
+	mwritereset.o

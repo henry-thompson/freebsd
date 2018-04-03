@@ -479,4 +479,5 @@
 #define	SYS_mknodat	559
 #define	SYS_kevent	560
 #define	SYS_mwritewatch	561
-#define	SYS_MAXSYSCALL	562
+#define	SYS_mwritereset	562
+#define	SYS_MAXSYSCALL	563

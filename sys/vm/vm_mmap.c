@@ -1775,3 +1775,123 @@ done:
 
 	return (0);
 }
+
+int
+sys_mwritereset(struct thread *td, struct mwritereset_args *uap)
+{
+	return kern_mwritereset(td, (uintptr_t)uap->addr, uap->len, uap->flags);
+}
+
+int
+kern_mwritereset(struct thread *td, uintptr_t addr, size_t len, int flags)
+{
+	vm_map_t map = &td->td_proc->p_vmspace->vm_map;
+
+	if ((addr + len) < addr || addr < vm_map_min(map) || addr + len > vm_map_max(map))
+		return (EINVAL);
+
+	vm_offset_t start = trunc_page(addr);
+	vm_offset_t end = round_page(addr + len);
+
+	vm_map_lock_read(map);
+	vm_map_entry_t firstEntry;
+
+	if (!vm_map_lookup_entry(map, start, &firstEntry)) {
+		vm_map_unlock_read(map);
+		return (EINVAL);
+	}
+
+	vm_map_entry_t entry;
+
+	/* Scan every vm_map_entry in the region's pages. */
+	for (entry = firstEntry;
+	     (entry != &map->header) && (entry->start < end);
+	     entry = entry->next
+	) {
+		/* Check for contiguity */
+		if (entry->end < end &&
+		    (entry->next == &map->header ||
+		     entry->next->start > entry->end)) {
+			vm_map_unlock_read(map);
+			return (EINVAL);
+		}
+
+		if (entry->eflags & MAP_ENTRY_IS_SUB_MAP)
+			continue;
+
+		/* Page offsets to start and end scanning between. */
+		vm_pindex_t pindex = OFF_TO_IDX(entry->offset);
+		vm_pindex_t pend = pindex + atop(entry->end - entry->start);
+
+		if (entry->start < start)
+			pindex += atop(start - entry->start);
+		if (entry->end > end)
+			pend -= atop(entry->end - end);
+
+		if (pindex >= pend)
+			continue;
+
+		/* Scan object page by page. */
+		vm_object_t object = entry->object.vm_object;
+
+		if (object == NULL)
+			continue;
+
+		VM_OBJECT_WLOCK(object);
+		uint16_t locked_depth = 1;
+
+		for (vm_page_t p = vm_page_find_least(object, pindex); pindex < pend; pindex++) {
+			/* If there is no backing object or no-share flag is set, skip nonresident pages. */
+			if ((object->backing_object == NULL || flags & MWRITEWATCH_NOT_SHARED) &&
+			    (p == NULL || (pindex = p->pindex) >= end))
+				break;
+
+			/* 
+			 * We may have to search the shadow chain to find the actual
+			 * object containing the page. These temp variables will be
+			 * set to the actual values we work from having searched the
+			 * shadow chain if necessary.
+			 */
+			vm_object_t tobject = object;
+			vm_offset_t tpindex = pindex;
+			vm_page_t tp = p;
+			uint16_t depth = 0;
+
+			/*
+			 * If the page is non-resident in the top-level object
+			 * search the shadow chain for it.
+			 */
+			if (p == NULL || pindex < p->pindex) {
+				do {
+					tpindex += OFF_TO_IDX(tobject->backing_object_offset);
+
+					if ((tobject = tobject->backing_object) == NULL)
+						goto next_pindex;
+
+					depth++;
+					if (depth == locked_depth) {
+						locked_depth++;
+						VM_OBJECT_WLOCK(tobject);
+					}
+				} while ((tp = vm_page_lookup(tobject, tpindex)) == NULL);
+			} else {
+				tp = p;
+				p = TAILQ_NEXT(p, listq);
+			}
+
+			vm_page_test_dirty(tp);
+			pmap_clear_modify(tp);
+			tp->written = 0;
+next_pindex: ;
+		}
+
+		while (locked_depth > 0) {
+			VM_OBJECT_WUNLOCK(object);
+			object = object->backing_object;
+			locked_depth--;
+		}
+	}
+
+	vm_map_unlock_read(map);
+	return (0);
+}

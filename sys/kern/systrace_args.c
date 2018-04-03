@@ -3288,6 +3288,15 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		*n_args = 6;
 		break;
 	}
+	/* mwritereset */
+	case 562: {
+		struct mwritereset_args *p = params;
+		uarg[0] = (intptr_t) p->addr; /* void * */
+		uarg[1] = p->len; /* size_t */
+		iarg[2] = p->flags; /* int */
+		*n_args = 3;
+		break;
+	}
 	default:
 		*n_args = 0;
 		break;
@@ -8765,6 +8774,22 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		};
 		break;
+	/* mwritereset */
+	case 562:
+		switch(ndx) {
+		case 0:
+			p = "userland void *";
+			break;
+		case 1:
+			p = "size_t";
+			break;
+		case 2:
+			p = "int";
+			break;
+		default:
+			break;
+		};
+		break;
 	default:
 		break;
 	};
@@ -10653,6 +10678,11 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		break;
 	/* mwritewatch */
 	case 561:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* mwritereset */
+	case 562:
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;

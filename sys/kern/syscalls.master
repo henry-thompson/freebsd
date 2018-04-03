@@ -1025,6 +1025,7 @@
 				    const struct timespec *timeout); }
 561 AUE_NULL    STD { int mwritewatch(void *addr0, size_t len, int flags, \
                     void *buf, size_t *naddr, size_t *granularity); }
+562 AUE_NULL    STD { int mwritereset(void *addr, size_t len, int flags); }
 
 ; Please copy any additions and changes to the following compatability tables:
 ; sys/compat/freebsd32/syscalls.master
