@@ -3378,7 +3378,7 @@ vfs_setdirty_locked_object(struct buf *bp)
 		 * by users through the VM system.
 		 */
 		for (i = 0; i < bp->b_npages; i++)
-			vm_page_test_dirty(bp->b_pages[i]);
+			vm_page_test_dirtywritten(bp->b_pages[i]);
 
 		/*
 		 * Calculate the encompassing dirty range, boffset and eoffset,

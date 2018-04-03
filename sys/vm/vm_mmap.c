@@ -868,8 +868,8 @@ RestartScan:
 			}
 			if (m != NULL) {
 				/* Examine other mappings to the page. */
-				if (m->dirty == 0 && pmap_is_modified(m))
-					vm_page_dirty(m);
+				vm_page_test_unclean(m);
+
 				if (m->dirty != 0)
 					mincoreinfo |= MINCORE_MODIFIED_OTHER;
 				/*

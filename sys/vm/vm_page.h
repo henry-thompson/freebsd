@@ -527,6 +527,8 @@ void vm_page_clear_dirty (vm_page_t, int, int);
 void vm_page_set_invalid (vm_page_t, int, int);
 int vm_page_is_valid (vm_page_t, int, int);
 void vm_page_test_dirty (vm_page_t);
+void vm_page_test_unclean(vm_page_t m);
+void vm_page_test_dirtywritten(vm_page_t m);
 vm_page_bits_t vm_page_bits(int base, int size);
 void vm_page_zero_invalid(vm_page_t m, boolean_t setvalid);
 void vm_page_free_toq(vm_page_t m);
@@ -677,8 +679,6 @@ vm_page_dirty(vm_page_t m)
 #else
 	m->dirty = VM_PAGE_BITS_ALL;
 #endif
-	/* If the page is dirty we consider it to have been modified. */
-	m->written = 1;
 }
 
 /*
