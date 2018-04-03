@@ -1711,7 +1711,7 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 				continue;
 
 			/* Compute address of page. */
-			vm_offset_t addr = entry->start + IDX_TO_OFF(tpindex) - entry->offset;
+			vm_offset_t addr = entry->start + IDX_TO_OFF(pindex) - entry->offset;
 
 			addr_buf[addr_buf_position] = addr;
 			addr_buf_position++;
