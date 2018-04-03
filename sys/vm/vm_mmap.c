@@ -1632,14 +1632,6 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	     (entry != &map->header) && (entry->start < end);
 	     entry = entry->next
 	) {
-		/* Check for contiguity */
-		if (entry->end < end &&
-		    (entry->next == &map->header ||
-		     entry->next->start > entry->end)) {
-			vm_map_unlock_read(map);
-			return (EINVAL);
-		}
-
 		if (entry->eflags & MAP_ENTRY_IS_SUB_MAP)
 			continue;
 
@@ -1808,14 +1800,6 @@ kern_mwritereset(struct thread *td, uintptr_t addr, size_t len, int flags)
 	     (entry != &map->header) && (entry->start < end);
 	     entry = entry->next
 	) {
-		/* Check for contiguity */
-		if (entry->end < end &&
-		    (entry->next == &map->header ||
-		     entry->next->start > entry->end)) {
-			vm_map_unlock_read(map);
-			return (EINVAL);
-		}
-
 		if (entry->eflags & MAP_ENTRY_IS_SUB_MAP)
 			continue;
 
