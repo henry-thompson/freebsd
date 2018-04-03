@@ -3696,11 +3696,8 @@ vm_page_test_dirty(vm_page_t m)
 {
 
 	VM_OBJECT_ASSERT_WLOCKED(m->object);
-	if (m->dirty != VM_PAGE_BITS_ALL && pmap_is_modified(m)) {
+	if (m->dirty != VM_PAGE_BITS_ALL && pmap_is_modified(m))
 		vm_page_dirty(m);
-		/* Opporunitsitcally set written flag */
-		m->written = 1;
-	}
 }
 
 /*
@@ -3712,26 +3709,21 @@ vm_page_test_unclean(vm_page_t m)
 {
 
 	VM_OBJECT_ASSERT_WLOCKED(m->object);
-	if (m->dirty == 0 && pmap_is_modified(m)) {
+	if (m->dirty == 0 && pmap_is_modified(m))
 		vm_page_dirty(m);
-		/* Opporunitsitcally set written flag */
-		m->written = 1;
-	}
 }
 
 /*
- * Set the page's dirty and written bits bits if the page is modified.
+ * Set the page's dirty and written bits if the page is modified.
  */
 void
 vm_page_test_dirtywritten(vm_page_t m)
 {
 
 	VM_OBJECT_ASSERT_WLOCKED(m->object);
-	if ((m->dirty != VM_PAGE_BITS_ALL || m->written == 0)
-	    && pmap_is_modified(m)) {
+	if ((m->dirty != VM_PAGE_BITS_ALL || m->written == false)
+	    && pmap_is_modified(m))
 		vm_page_dirty(m);
-		m->written = 1;
-	}
 }
 
 void

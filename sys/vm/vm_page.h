@@ -679,6 +679,7 @@ vm_page_dirty(vm_page_t m)
 #else
 	m->dirty = VM_PAGE_BITS_ALL;
 #endif
+	m->written = true;
 }
 
 /*
