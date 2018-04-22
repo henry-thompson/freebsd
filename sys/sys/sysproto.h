@@ -1767,7 +1767,7 @@ struct mwritten_args {
 	char flags_l_[PADL_(int)]; int flags; char flags_r_[PADR_(int)];
 	char buf_l_[PADL_(void *)]; void * buf; char buf_r_[PADR_(void *)];
 	char naddr_l_[PADL_(size_t *)]; size_t * naddr; char naddr_r_[PADR_(size_t *)];
-	char granularity_l_[PADL_(size_t *)]; size_t * granularity; char granularity_r_[PADR_(size_t *)];
+	char gran_l_[PADL_(size_t *)]; size_t * gran; char gran_r_[PADR_(size_t *)];
 };
 int	nosys(struct thread *, struct nosys_args *);
 void	sys_sys_exit(struct thread *, struct sys_exit_args *);
