@@ -1590,22 +1590,22 @@ vm_mmap_to_errno(int rv)
 }
 
 int
-sys_mwritewatch(struct thread *td, struct mwritewatch_args *uap)
+sys_mwritten(struct thread *td, struct mwritten_args *uap)
 {
-	return kern_mwritewatch(td, (uintptr_t)uap->addr0, uap->len, uap->flags,
-	    (uintptr_t)uap->buf, uap->naddr, uap->granularity);
+	return kern_mwritten(td, (uintptr_t)uap->addr0, uap->len, uap->flags,
+	    (vm_offset_t *)uap->buf, uap->naddr, uap->gran);
 }
 
 int
-kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
-    uintptr_t buf, size_t *naddr, size_t *granularity)
+kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
+    vm_offset_t *buf, size_t *naddr, size_t *gran)
 {
 	vm_map_t map = &td->td_proc->p_vmspace->vm_map;
 
 	if ((addr0 + len) < addr0 || addr0 < vm_map_min(map) || addr0 + len > vm_map_max(map))
 		return (EINVAL);
 
-	if (buf == NULL && (naddr != 0 || flags & MWRITEWATCH_RESET == 0))
+	if (buf == NULL && (naddr != 0 || flags & MWRITTEN_RESET == 0))
 		return (EINVAL);
 
 	vm_offset_t start = trunc_page(addr0);
@@ -1661,7 +1661,7 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 
 		for (vm_page_t p = vm_page_find_least(object, pindex); pindex < pend; pindex++) {
 			/* If there is no backing object or no-share flag is set, skip nonresident pages. */
-			if ((object->backing_object == NULL || flags & MWRITEWATCH_NOT_SHARED) &&
+			if ((object->backing_object == NULL || flags & MWRITTEN_NOT_SHARED) &&
 			    (p == NULL || (pindex = p->pindex) >= end))
 				break;
 
@@ -1717,7 +1717,7 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 			}
 
 			/* Reset writewatch flags as we go along if requested. */
-			if (flags & MWRITEWATCH_RESET) {
+			if (flags & MWRITTEN_RESET) {
 				pmap_clear_modify(tp);
 				tp->written = 0;
 			}
@@ -1746,7 +1746,7 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 				 * so next time we copyout the address buffer, we append
 				 * to what we have already buffered.
 				 */
-				buf += addr_buf_size * sizeof(vm_offset_t);
+				buf += addr_buf_size;
 				addr_buf_position = 0;
 			}
 
@@ -1775,7 +1775,7 @@ done:
 	size_t page_size = PAGE_SIZE;
 
 	copyout(&written_pages, naddr, sizeof(size_t));
-	copyout(&page_size, granularity, sizeof(size_t));
+	copyout(&page_size, gran, sizeof(size_t));
 
 	return (0);
 }

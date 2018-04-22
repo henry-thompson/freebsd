@@ -196,10 +196,11 @@ typedef	__size_t	size_t;
 #endif
 
 /*
- * Flags for mwritewatch
+ * Flags for mwritten
  */
-#define MWRITEWATCH_RESET	0x001 /* Reset writewatch bits */
-#define MWRITEWATCH_NOT_SHARED	0x002 /* Don't scan shadow chains */
+#define MWRITTEN_NONE	0x000 /* Default behaviour */
+#define MWRITTEN_RESET	0x001 /* Reset writewatch bits */
+#define MWRITTEN_NOT_SHARED	0x002 /* Don't scan shadow chains */
 
 #if defined(_KERNEL) || defined(_WANT_FILE)
 #include <sys/lock.h>
@@ -270,7 +271,7 @@ int	mprotect(void *, size_t, int);
 int	msync(void *, size_t, int);
 int	munlock(const void *, size_t);
 int	munmap(void *, size_t);
-int	mwritewatch(void *, size_t, int, void *, size_t *, size_t *);
+int	mwritten(void *, size_t, int, void *, size_t *, size_t *);
 #if __POSIX_VISIBLE >= 200112
 int	posix_madvise(void *, size_t, int);
 #endif

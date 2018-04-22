@@ -3276,15 +3276,15 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		*n_args = 6;
 		break;
 	}
-	/* mwritewatch */
+	/* mwritten */
 	case 561: {
-		struct mwritewatch_args *p = params;
+		struct mwritten_args *p = params;
 		uarg[0] = (intptr_t) p->addr0; /* void * */
 		uarg[1] = p->len; /* size_t */
 		iarg[2] = p->flags; /* int */
 		uarg[3] = (intptr_t) p->buf; /* void * */
 		uarg[4] = (intptr_t) p->naddr; /* size_t * */
-		uarg[5] = (intptr_t) p->granularity; /* size_t * */
+		uarg[5] = (intptr_t) p->gran; /* size_t * */
 		*n_args = 6;
 		break;
 	}
@@ -8740,7 +8740,7 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		};
 		break;
-	/* mwritewatch */
+	/* mwritten */
 	case 561:
 		switch(ndx) {
 		case 0:
@@ -10651,7 +10651,7 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;
-	/* mwritewatch */
+	/* mwritten */
 	case 561:
 		if (ndx == 0 || ndx == 1)
 			p = "int";

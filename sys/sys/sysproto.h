@@ -1761,7 +1761,7 @@ struct kevent_args {
 	char nevents_l_[PADL_(int)]; int nevents; char nevents_r_[PADR_(int)];
 	char timeout_l_[PADL_(const struct timespec *)]; const struct timespec * timeout; char timeout_r_[PADR_(const struct timespec *)];
 };
-struct mwritewatch_args {
+struct mwritten_args {
 	char addr0_l_[PADL_(void *)]; void * addr0; char addr0_r_[PADR_(void *)];
 	char len_l_[PADL_(size_t)]; size_t len; char len_r_[PADR_(size_t)];
 	char flags_l_[PADL_(int)]; int flags; char flags_r_[PADR_(int)];
@@ -2149,7 +2149,7 @@ int	sys_getfsstat(struct thread *, struct getfsstat_args *);
 int	sys_fhstatfs(struct thread *, struct fhstatfs_args *);
 int	sys_mknodat(struct thread *, struct mknodat_args *);
 int	sys_kevent(struct thread *, struct kevent_args *);
-int	sys_mwritewatch(struct thread *, struct mwritewatch_args *);
+int	sys_mwritten(struct thread *, struct mwritten_args *);
 
 #ifdef COMPAT_43
 
@@ -3042,7 +3042,7 @@ int	freebsd11_mknodat(struct thread *, struct freebsd11_mknodat_args *);
 #define	SYS_AUE_fhstatfs	AUE_FHSTATFS
 #define	SYS_AUE_mknodat	AUE_MKNODAT
 #define	SYS_AUE_kevent	AUE_KEVENT
-#define	SYS_AUE_mwritewatch	AUE_NULL
+#define	SYS_AUE_mwritten	AUE_NULL
 
 #undef PAD_
 #undef PADL_
