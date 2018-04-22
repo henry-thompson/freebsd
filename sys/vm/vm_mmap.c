@@ -1605,6 +1605,9 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	if ((addr0 + len) < addr0 || addr0 < vm_map_min(map) || addr0 + len > vm_map_max(map))
 		return (EINVAL);
 
+	if (buf == NULL && (naddr != 0 || flags & MWRITEWATCH_RESET == 0))
+		return (EINVAL);
+
 	vm_offset_t start = trunc_page(addr0);
 	vm_offset_t end = round_page(addr0 + len);
 
@@ -1695,11 +1698,31 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 				p = TAILQ_NEXT(p, listq);
 			}
 
-			if (tp->written == 0 && pmap_is_modified(tp))
-				/* This also sets the writewatch flag. */
-				vm_page_dirty(tp);
+			/*
+			 * If the provided output buffer was NULL, the caller
+			 * expects no output, just the side-effects of this
+			 * call. This is only permitted if the reset flag is
+			 * also specified. Hence, we promote all pmap dirty
+			 * bits to vm and ignore whether the page was written.
+			 */
+			if (buf == NULL)
+				vm_page_test_dirty(tp);
+			else {
+				if (tp->written == 0 && pmap_is_modified(tp))
+					/* This also sets the writewatch flag. */
+					vm_page_dirty(tp);
 
-			if (!tp->written) 
+				if (!tp->written)
+					continue;
+			}
+
+			/* Reset writewatch flags as we go along if requested. */
+			if (flags & MWRITEWATCH_RESET) {
+				pmap_clear_modify(tp);
+				tp->written = 0;
+			}
+
+			if (buf == NULL)
 				continue;
 
 			/* Compute address of page. */
@@ -1727,23 +1750,9 @@ kern_mwritewatch(struct thread *td, uintptr_t addr0, size_t len, int flags,
 				addr_buf_position = 0;
 			}
 
-			/* Reset writewatch flags as we go along if requested. */
-			if (flags & MWRITEWATCH_RESET) {
-				pmap_clear_modify(tp);
-				tp->written = 0;
-			}
+			if (written_pages == max_written_pages)
+				break;
 
-			if (written_pages == max_written_pages) {
-				tobject = object;
-
-				while (locked_depth > 0) {
-					VM_OBJECT_WUNLOCK(tobject);
-					tobject = tobject->backing_object;
-					locked_depth--;
-				}
-
-				goto done;
-			}
 next_pindex: ;
 		}
 
@@ -1752,6 +1761,9 @@ next_pindex: ;
 			object = object->backing_object;
 			locked_depth--;
 		}
+
+		if (written_pages == max_written_pages)
+			break;
 	}
 
 done:
