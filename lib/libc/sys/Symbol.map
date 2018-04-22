@@ -399,7 +399,6 @@ FBSD_1.5 {
 	stat;
 	statfs;
 	mwritewatch;
-	mwritereset;
 };
 
 FBSDprivate_1.0 {
