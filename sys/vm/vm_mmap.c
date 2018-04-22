@@ -1605,7 +1605,7 @@ kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	if ((addr0 + len) < addr0 || addr0 < vm_map_min(map) || addr0 + len > vm_map_max(map))
 		return (EINVAL);
 
-	if (buf == NULL && (naddr != 0 || flags & MWRITTEN_RESET == 0))
+	if (buf == NULL && (naddr != 0 || !(flags & MWRITTEN_RESET)))
 		return (EINVAL);
 
 	int error = 0;
