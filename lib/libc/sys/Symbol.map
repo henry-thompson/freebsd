@@ -398,7 +398,7 @@ FBSD_1.5 {
 	mknodat;
 	stat;
 	statfs;
-	mwritewatch;
+	mwritten;
 };
 
 FBSDprivate_1.0 {
