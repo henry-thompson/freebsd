@@ -1593,12 +1593,12 @@ int
 sys_mwritten(struct thread *td, struct mwritten_args *uap)
 {
 	return kern_mwritten(td, (uintptr_t)uap->addr0, uap->len, uap->flags,
-	    (uintptr_t)uap->buf, uap->naddr, uap->gran);
+	    (vm_offset_t *)uap->buf, uap->naddr, uap->gran);
 }
 
 int
 kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
-    uintptr_t buf, size_t *naddr, size_t *gran)
+    vm_offset_t *buf, size_t *naddr, size_t *gran)
 {
 	vm_map_t map = &td->td_proc->p_vmspace->vm_map;
 
@@ -1608,6 +1608,7 @@ kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	if (buf == NULL && (naddr != 0 || flags & MWRITTEN_RESET == 0))
 		return (EINVAL);
 
+	int error = 0;
 	vm_offset_t start = trunc_page(addr0);
 	vm_offset_t end = round_page(addr0 + len);
 
@@ -1737,8 +1738,11 @@ kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
 			 * addresses out.
 			 */
 			if (addr_buf_position == addr_buf_size) {
-				copyout(addr_buf, (void *) buf,
+				error = copyout(addr_buf, (void *) buf,
 					addr_buf_size * sizeof(vm_offset_t));
+				
+				if (error != 0)
+					break;
 
 				/*
 				 * Move the pointer to the userspace address buffer to
@@ -1746,7 +1750,7 @@ kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
 				 * so next time we copyout the address buffer, we append
 				 * to what we have already buffered.
 				 */
-				buf += addr_buf_size * sizeof(vm_offset_t);
+				buf += addr_buf_size;
 				addr_buf_position = 0;
 			}
 
@@ -1762,6 +1766,9 @@ next_pindex: ;
 			locked_depth--;
 		}
 
+		if (error != 0)
+			return (error);
+
 		if (written_pages == max_written_pages)
 			break;
 	}
@@ -1769,13 +1776,20 @@ next_pindex: ;
 done:
 	vm_map_unlock_read(map);
 
-	if (addr_buf_position > 0)
-		copyout(addr_buf, (void *) buf, addr_buf_position * sizeof(vm_offset_t));
+	if (addr_buf_position > 0) {
+		error = copyout(addr_buf, (void *) buf, addr_buf_position * sizeof(vm_offset_t));
+
+		if (error != 0)
+			return (error);
+	}
 
 	size_t page_size = PAGE_SIZE;
 
-	copyout(&written_pages, naddr, sizeof(size_t));
-	copyout(&page_size, gran, sizeof(size_t));
+	if ((error = copyout(&written_pages, naddr, sizeof(size_t))) != 0)
+		return (error);
+
+	if ((error = copyout(&page_size, gran, sizeof(size_t))) != 0)
+		return (error);
 
 	return (0);
 }
