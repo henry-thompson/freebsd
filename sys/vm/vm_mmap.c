@@ -1605,12 +1605,26 @@ kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	if ((addr0 + len) < addr0 || addr0 < vm_map_min(map) || addr0 + len > vm_map_max(map))
 		return (EINVAL);
 
-	if (buf == NULL && (naddr != 0 || !(flags & MWRITTEN_RESET)))
+	if (buf == NULL && (naddr != NULL || !(flags & MWRITTEN_RESET)))
 		return (EINVAL);
 
 	int error = 0;
 	vm_offset_t start = trunc_page(addr0);
 	vm_offset_t end = round_page(addr0 + len);
+
+	size_t written_pages = 0;
+	size_t max_written_pages = 0;
+
+	const int addr_buf_size = 16;
+	int addr_buf_position = 0;
+	vm_offset_t addr_buf[addr_buf_size];
+
+	if (naddr != NULL)
+		if ((error = copyin(naddr, &max_written_pages, sizeof(size_t))) != 0)
+			return (error);
+
+	if (buf != NULL && max_written_pages == 0)
+		return (EINVAL);
 
 	vm_map_lock_read(map);
 	vm_map_entry_t firstEntry;
@@ -1621,15 +1635,6 @@ kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	}
 
 	vm_map_entry_t entry;
-	size_t written_pages = 0;
-	size_t max_written_pages = *naddr;
-
-	const int addr_buf_size = 16;
-	int addr_buf_position = 0;
-	vm_offset_t addr_buf[addr_buf_size];
-
-	if (max_written_pages == 0)
-		goto done;
 
 	/* Scan every vm_map_entry in the region's pages. */
 	for (entry = firstEntry;
@@ -1773,19 +1778,18 @@ next_pindex: ;
 			break;
 	}
 
-done:
 	vm_map_unlock_read(map);
 
 	if (addr_buf_position > 0) {
-		error = copyout(addr_buf, (void *) buf, addr_buf_position * sizeof(vm_offset_t));
-
-		if (error != 0)
+		if ((error = copyout(addr_buf, (void *) buf,
+		    addr_buf_position * sizeof(vm_offset_t))) != 0)
 			return (error);
 	}
 
 	size_t page_size = PAGE_SIZE;
 
-	if ((error = copyout(&written_pages, naddr, sizeof(size_t))) != 0)
+	if (naddr != NULL &&
+	    (error = copyout(&written_pages, naddr, sizeof(size_t))) != 0)
 		return (error);
 
 	if ((error = copyout(&page_size, gran, sizeof(size_t))) != 0)

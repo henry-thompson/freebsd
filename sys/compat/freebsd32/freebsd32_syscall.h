@@ -468,5 +468,5 @@
 #define	FREEBSD32_SYS_fhstatfs	558
 #define	FREEBSD32_SYS_mknodat	559
 #define	FREEBSD32_SYS_freebsd32_kevent	560
-#define	FREEBSD32_SYS_mwritewatch	561
+#define	FREEBSD32_SYS_mwritten	561
 #define	FREEBSD32_SYS_MAXSYSCALL	562
