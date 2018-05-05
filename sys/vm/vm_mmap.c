@@ -1605,7 +1605,7 @@ kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	if ((addr0 + len) < addr0 || addr0 < vm_map_min(map) || addr0 + len > vm_map_max(map))
 		return (EINVAL);
 
-	if (buf == NULL && (naddr != NULL || !(flags & MWRITTEN_RESET)))
+	if (buf == NULL && (naddr != NULL || !(flags & MWRITTEN_CLEAR)))
 		return (EINVAL);
 
 	int error = 0;
@@ -1723,7 +1723,7 @@ kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
 			}
 
 			/* Reset writewatch flags as we go along if requested. */
-			if (flags & MWRITTEN_RESET) {
+			if (flags & MWRITTEN_CLEAR) {
 				pmap_clear_modify(tp);
 				tp->written = 0;
 			}
