@@ -1,0 +1,176 @@
+.Dd May 4, 2018
+.Dt MWRITTEN 2
+.Os
+.Sh NAME
+.Nm mwritten
+.Nd track which pages in memory are modified over time.
+.Sh LIBRARY
+.Lb libc
+.Sh SYNOPSIS
+.In sys/mman.h
+.Ft int
+.Fn mwritten "void *addr" "size_t len" "int flags" "void *buf" "size_t *naddr" "size_t *gran"
+.Sh DESCRIPTION
+The
+.Fn mwritten
+system call returns a list of pages modified since write tracking was
+cleared, or if never cleared then since allocation, in the region
+starting at
+.Fa addr
+and continuing for
+.Fa len
+bytes. If the specified region does not start and end on page boundaries,
+.Fn mwritten
+will query between the nearest page boundaries which contain the region.
+The addresses of writes to memory are placed in
+.Fa buf
+and upon successful return
+.Fa naddr
+is updated to indicate the number of addresses outputted.
+The value of
+.Fa gran
+will also be updated to indicate the granularity of write tracking.
+Hence, for each address outputted to
+.Fa buf Ns ,
+the current process wrote to somewhere between that address and the
+next
+.Fa gran
+bytes onward. Currently,
+.Fa gran
+is always equal to system page size.
+.Pp
+If there are so many writes that
+.Fa buf
+fills up, then
+.Fn mwritten
+returns as soon as it does so. Callers can detect this condition
+if the function call succeeds but the value of
+.Fa naddr
+is unchanged, and in this case the final address which was queried
+or cleared before returning can be found in the last outputted
+adddress,
+.Fa buf[naddr - 1] Ns .
+To ensure all modifications in the region are found, and all written
+statuses cleared if requested, always check the value of
+.Fa naddr
+and call
+.Fn mwritten
+again starting from the last outputted address if it returned early the
+first time.
+.Pp
+The
+.Fn mwritten
+system call accepts flags by
+.Em or Ns 'ing
+the following values:
+.Pp
+.Bl -tag -width MWRITTEN_NOT_SHARED -compact
+.It Dv MWRITTEN_DEFAULT
+Default behaviour. Returns addresses of modified regions in memory
+but does not alter their state.
+.It Dv MWRITTEN_CLEAR
+Clears the written statuses of all memory in the specified region.
+Returns the addresses of modified regions in memory if
+.Fa buf
+and
+.Fa naddr
+are both specified and valid. If they are both
+.Dv NULL
+then
+.Fn mwritten
+will return no output.
+.It Dv MWRITTEN_NOT_SHARED
+Indicates that the memory region provided is never copy-on-written
+from. This may be faster, but beware that incorrect
+usage may lead to subtle bugs.
+.El
+.Sh NOTES
+This system call is designed primarily for usage within garbage
+collectors that require efficient write tracking. Whilst it does work
+on copy-on-written memory, no guarantees are made about its operation
+on shared memory. Furthermore, the effects of different threads
+calling
+.Fn mwritten
+simultaneously are not isolated, and appropriate measures to prevent
+race conditions are required where necessary.
+.Pp
+When clearing writes using the
+.Dv MWRITTEN_CLEAR
+flag, if the output is not required then setting
+.Fa buf
+and
+.Fa naddr
+to
+.Dv NULL
+is highly recommended, because this performs significantly faster.
+.Sh RETURN VALUES
+Upon successful completion,
+.Fn mwritten
+returns 0.
+Otherwise, a non-zero value
+is returned and
+.Va errno
+is set to indicate the error.
+.Sh ERRORS
+The
+.Fn mwritten
+system call
+will fail if:
+.Bl -tag -width Er
+.It Bq Er EFAULT
+The provided output buffer starting at
+.Fa buf
+and which must be able to hold
+.Fa naddr
+pointers was not legal.
+.It Bq Er EFAULT
+The address passed to
+.Fa gran
+was not a valid, allocated virtual address.
+.It Bq Er EINVAL
+The start address given in the
+.Fa addr
+argument was not a valid, allocated virtual address.
+.It Bq Er EINVAL
+The end address, that is
+.Fa len
+bytes after
+.Fa addr Ns ,
+was not a valid, allocated virtual address.
+.It Bq Er EINVAL
+The argument
+.Fa buf
+was
+.Dv NULL
+when the flag
+.Dv MWRITTEN_CLEAR
+was not specified and the
+.Fa naddr
+argument was not also
+.Dv NULL Ns .
+.It Bq Er EINVAL
+The argument
+.Fa naddr
+was
+.Dv NULL
+when the flag
+.Dv MWRITTEN_CLEAR
+was not specified and the
+.Fa buf
+argument was not also
+.Dv NULL Ns .
+.It Bq Er EINVAL
+Some pages in the region of memory starting at
+.Fa addr
+and extending for
+.Fa len
+bytes onward were fictious or unmanaged.
+.El
+.Sh SEE ALSO
+.Xr minherit 2 ,
+.Xr mlock 2 ,
+.Xr mmap 2 ,
+.Xr mprotect 2 ,
+.Xr munmap 2 ,
+.Xr getpagesize 3 ,
+.Xr getpagesizes 3
