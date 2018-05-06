@@ -199,7 +199,7 @@ typedef	__size_t	size_t;
  * Flags for mwritten
  */
 #define MWRITTEN_NONE	0x000 /* Default behaviour */
-#define MWRITTEN_CLEAR	0x001 /* Reset writewatch bits */
+#define MWRITTEN_CLEAR	0x001 /* Reset written bits */
 #define MWRITTEN_NOT_SHARED	0x002 /* Don't scan shadow chains */
 
 #if defined(_KERNEL) || defined(_WANT_FILE)

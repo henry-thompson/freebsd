@@ -1727,14 +1727,14 @@ kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
 				vm_page_test_dirty(tp);
 			else {
 				if (tp->written == 0 && pmap_is_modified(tp))
-					/* This also sets the writewatch flag. */
+					/* This also sets the written bit. */
 					vm_page_dirty(tp);
 
 				if (!tp->written)
 					continue;
 			}
 
-			/* Reset writewatch flags as we go along if requested. */
+			/* Reset written bit as we go along if requested. */
 			if (flags & MWRITTEN_CLEAR) {
 				pmap_clear_modify(tp);
 				tp->written = 0;
