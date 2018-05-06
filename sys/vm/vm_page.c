@@ -3713,19 +3713,6 @@ vm_page_test_unclean(vm_page_t m)
 		vm_page_dirty(m);
 }
 
-/*
- * Set the page's dirty and written bits if the page is modified.
- */
-void
-vm_page_test_dirtywritten(vm_page_t m)
-{
-
-	VM_OBJECT_ASSERT_WLOCKED(m->object);
-	if ((m->dirty != VM_PAGE_BITS_ALL || m->written == false)
-	    && pmap_is_modified(m))
-		vm_page_dirty(m);
-}
-
 void
 vm_page_lock_KBI(vm_page_t m, const char *file, int line)
 {
