@@ -94,9 +94,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/pmckern.h>
 #endif
 
-MALLOC_DECLARE(M_WRITEWATCH);
-MALLOC_DEFINE(M_WRITEWATCH, "Writewatch Buffer", "Buffers to hold addresses of written pages");
-
 int old_mlock = 0;
 SYSCTL_INT(_vm, OID_AUTO, old_mlock, CTLFLAG_RWTUN, &old_mlock, 0,
     "Do not apply RLIMIT_MEMLOCK on mlockall");
