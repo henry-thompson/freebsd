@@ -1705,6 +1705,18 @@ kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
 			}
 
 			/*
+			 * Fictitious and unmanaged pages aren't managed by the
+			 * pageout daemon, so we cannot make guarantees about
+			 * their written statuses. We don't support such memory
+			 * and simply throw an error instead.
+			 */
+			if ((tp->flags & PG_FICTITIOUS) != 0 ||
+			    (tp->oflags & VPO_UNMANAGED) != 0) {
+				error = EINVAL;
+				break;
+			}
+
+			/*
 			 * If the provided output buffer was NULL, the caller
 			 * expects no output, just the side-effects of this
 			 * call. This is only permitted if the reset flag is
