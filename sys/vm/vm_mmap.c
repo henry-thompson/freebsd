@@ -73,7 +73,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/syscallsubr.h>
 #include <sys/sysent.h>
 #include <sys/vmmeter.h>
-#include <sys/malloc.h>
 
 #include <security/audit/audit.h>
 #include <security/mac/mac_framework.h>
@@ -1600,13 +1599,17 @@ kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
 {
 	vm_map_t map = &td->td_proc->p_vmspace->vm_map;
 
-	if ((addr0 + len) < addr0 || addr0 < vm_map_min(map) || addr0 + len > vm_map_max(map))
+	/* Ensure the region to scan for is legal. */
+	if (addr0 + len > vm_map_max(map) || addr0 < vm_map_min(map))
+		return (EINVAL);
+	if (addr0 + len < addr0)
 		return (EINVAL);
 
+	/* buf can only be NULL naddr is too and with MWRITTEN_CLEAR. */
 	if (buf == NULL && (naddr != NULL || !(flags & MWRITTEN_CLEAR)))
 		return (EINVAL);
 
-	int error = 0;
+	/* Read in and fix up input arguments. */
 	vm_offset_t start = trunc_page(addr0);
 	vm_offset_t end = round_page(addr0 + len);
 
@@ -1616,6 +1619,8 @@ kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
 	const int addr_buf_size = 16;
 	int addr_buf_position = 0;
 	vm_offset_t addr_buf[addr_buf_size];
+
+	int error = 0;
 
 	if (naddr != NULL)
 		if ((error = copyin(naddr, &max_written_pages, sizeof(size_t))) != 0)
@@ -1663,8 +1668,12 @@ kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
 		VM_OBJECT_WLOCK(object);
 		uint16_t locked_depth = 1;
 
-		for (vm_page_t p = vm_page_find_least(object, pindex); pindex < pend; pindex++) {
-			/* If there is no backing object or no-share flag is set, skip nonresident pages. */
+		for (vm_page_t p = vm_page_find_least(object, pindex);
+		    pindex < pend; pindex++) {
+			/*
+			 * If there is no backing object or no-share flag is set, skip
+			 * nonresident pages.
+			 */
 			if ((object->backing_object == NULL || flags & MWRITTEN_NOT_SHARED) &&
 			    (p == NULL || (pindex = p->pindex) >= end))
 				break;
@@ -1775,6 +1784,10 @@ kern_mwritten(struct thread *td, uintptr_t addr0, size_t len, int flags,
 next_pindex: ;
 		}
 
+		/*
+		 * Locks were obtained down the shadow chain from head down. Unlock
+		 * in the same order.
+		 */
 		while (locked_depth > 0) {
 			VM_OBJECT_WUNLOCK(object);
 			object = object->backing_object;
@@ -1784,6 +1797,7 @@ next_pindex: ;
 		if (error != 0)
 			return (error);
 
+		/* If the output buffer was filled. */
 		if (written_pages == max_written_pages)
 			break;
 	}
@@ -1796,6 +1810,7 @@ next_pindex: ;
 			return (error);
 	}
 
+	/* Copy out results. */
 	size_t page_size = PAGE_SIZE;
 
 	if (naddr != NULL &&
