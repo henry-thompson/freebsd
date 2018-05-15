@@ -314,7 +314,7 @@ ATF_TC_BODY(mwritten__clear_flag_clears_writes, tc) {
 
 	mwritten(heap, len, MWRITTEN_CLEAR, buf, &naddr, &gran);
 
-	naddr = 0;
+	naddr = 3;
 	int res = mwritten(heap, len, 0, buf, &naddr, &gran);
 
 	ATF_CHECK_MSG(res == 0,
